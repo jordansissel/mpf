@@ -20,46 +20,66 @@ require "awesome_print"
   param_name = [A-Za-z0-9_]+ ;
   param_value = string ;
 
-  parameter = param_name ws "=>" ws param_value
+  parameter = param_name ws "=>" ws param_value ;
   parameters = parameter ( ws "," ws parameter )* ;
 
-  reference = uppercase_name "[" string "]" ;
-  edge = reference ws arrow ws reference ;
+  reference = uppercase_name "[" string "]" > { puts "reference!" } ;
+  edge = reference ws arrow ws reference ( ws arrow ws reference )* > { puts "Edge" } ;
   name = [A-Za-z0-9]+ ;
   
   resource_entry = name ws ":" ws parameters ws ";" ;
   resource_entries = resource_entry ( ws resource_entry )* ;
 
   resource = type_name ws "{" ws resource_entries ws "}" > foo ;
-  statement = (ws (resource | edge) )+ ;
+  statement = (ws (resource > { puts "res" } | edge > { puts "edge" } ) )+ ;
 
-  main := ( statement )
+  main := statement*
           0 @{ puts "Failed" }
-          $err { puts "Error" } ;
+          $err { 
+            # Compute line and column of the cursor (p)
+            line = string[0 .. p].count("\n") + 1
+            column = string[0 .. p].split("\n").last.length
+            puts "Error at line #{line}, column #{column}: #{string[p .. -1].inspect}"
+          } ;
 }%%
 
 class MPF
   attr_accessor :eof
-  def parse(string)
-    %% write data;
 
+  def initialize
+    # BEGIN RAGEL DATA
+    %% write data;
+    # END RAGEL DATA
+
+  end
+
+  def parse(string)
     data = string.unpack("c*")
 
+    # BEGIN RAGEL INIT
     %% write init;
+    # END RAGEL INIT
+
+    # BEGIN RAGEL EXEC 
     %% write exec;
+    # END RAGEL EXEC
+
+    return cs
   end
 
 end # class MPF
 
 def parse(string)
-  MPF.new.parse(string)
+  puts MPF.new.parse(string)
 end
 
-parse("
+parse(<<"MPF")
   foo { 
     test: 
       fizzle => 'bar'; 
     foo:
       bar => 'baz';
   }
-")
+
+  Foo["test"] -> Foo["foo"]
+MPF
